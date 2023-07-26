@@ -8,13 +8,13 @@ from botocore.exceptions import NoCredentialsError
 import json
 
 
-def download_zip_files(url, filename):
+def download_zip_file(url, filename):
     r = requests.get(url, stream=True, headers={'User-Agent': 'Mozilla/5.0'})
     if r.status_code == 200:
         with open(filename, 'wb') as f:
             r.raw.decode_content = True
             f.write(r.content)
-    print('Zip File Downloading Completed')
+            print('Zip File Downloading Completed')
 
 
 def extract_zip_file(currentpath, extractpath):
@@ -35,6 +35,7 @@ def load_files_into_dict(jsonfilespath):
     for file_name in os.listdir(jsonfilespath):
         files_to_upload.update({i: file_name})
         i = i + 1
+    print(files_to_upload)
     return files_to_upload
 
 
@@ -54,66 +55,139 @@ def upload_files_to_awss3(jsonfilespath, list_of_files_dict, bucket, access_key,
 
 
 def extract_data(jsonFiles, dict_list_of_files, path):
-    print("inside")
+    flag = 0
+    count = 0
+    s = {}
     for file_name in dict_list_of_files.values():
         local_file_path = jsonFiles + '/' + file_name
         get_json_size = os.path.getsize(local_file_path)
+        if count <= 2:
+            if get_json_size != 2:
+                try:
+                    with open(local_file_path) as f:
+                        jsonFileData = json.load(f)
+                    entity_key = jsonFileData['cik']
+                    entity_name = jsonFileData['entityName']
+                    entity_dei_common_stock = jsonFileData['facts']['dei']['EntityCommonStockSharesOutstanding'][
+                        'label']
+                    entity_dei_common_stock_desc = jsonFileData['facts']['dei']['EntityCommonStockSharesOutstanding'][
+                        'description']
+                    entity_dei_common_stock_units = jsonFileData['facts']['dei']['EntityCommonStockSharesOutstanding'][
+                        'units']['shares']
+                    column_name = ["cik", "entity_name", "stock_name", "stock_desc", "end_date", "value", "accn_num",
+                                   "f_year", "fp_quarter",
+                                   "form_num", "filed_date", "frame_details"]
+                    with open(path, 'a', newline='') as fp:
+                        writer = csv.DictWriter(fp, fieldnames=column_name)
+                        if flag == 0:
+                            writer.writeheader()
+                        for i in entity_dei_common_stock_units:
+                            print('hello')
+                            print(i)
+                            end = i.get('end')
+                            val = i.get('val')
+                            accn = i.get('accn')
+                            fy = i.get('fy')
+                            fp = i.get('fp')
+                            form = i.get('form')
+                            filed = i.get('filed')
+                            frame = i.get('frame')
+                            s.update([("cik", entity_key), ("entity_name", entity_name),
+                                      ("stock_name", entity_dei_common_stock),
+                                      ("stock_desc", entity_dei_common_stock_desc),
+                                      ("end_date", end), ("value", val), ("accn_num", accn),
+                                      ("f_year", fy), ("fp_quarter", fp),
+                                      ("form_num", form), ("filed_date", filed), ("frame_details", frame)])
+                            writer.writerow(s)
+                    flag = flag + 1
+                    count = count + 1
+                except KeyError:
+                    print("Key not found in json file")
 
-        if get_json_size != 2:
-            try:
-                with open(local_file_path) as f:
-                    jsonFileData = json.load(f)
-                # print(jsonFileData)
-                entity_key = jsonFileData['cik']
-                entity_name = jsonFileData['entityName']
-                entity_dei_common_stock = jsonFileData['facts']['dei']['EntityCommonStockSharesOutstanding'][
-                    'label']
-                entity_dei_common_stock_desc = jsonFileData['facts']['dei']['EntityCommonStockSharesOutstanding'][
-                    'description']
-                entity_dei_common_stock_units = jsonFileData['facts']['dei']['EntityCommonStockSharesOutstanding'][
-                    'units']['shares']
-                entity_dei_common_publicfloat_units = jsonFileData['facts']['dei']['EntityPublicFloat'][
-                    'units']['USD']
-                # print(entity_dei_common_stock_units)
-                # print("hello")
-                # entity_dei_public_float = jsonFileData['facts']['dei']['EntityPublicFloat'][
-                #     'label']
-                # entity_dei_public_float_desc = jsonFileData['facts']['dei']['EntityPublicFloat'][
-                #     'description']
-                # entity_common_payment_name = jsonFileData['facts']['dei']['PaymentOfFinancingAndStockIssuanceCosts']['label']
-                print(entity_key)
-                print(entity_name)
-                # print(entity_dei_common_stock)
-                # print(entity_dei_common_stock_desc)
-                # print(entity_dei_public_float)
-                # print(entity_dei_public_float_desc)
-                # l1 = [(entity_key, entity_name, entity_dei_common_stock, entity_dei_common_stock_desc,
-                #        entity_dei_public_float, entity_dei_public_float_desc)]
-                # l2 = [l1]
-                s = []
-                column_name = ["cik", "entity_name", "stock_name", "stock_desc", "end", "val", "accn", "fy", "fp",
-                               "form", "filed", "frame"]
-                with open(path, 'a', newline='') as fp:
-                    writer = csv.writer(fp)  # this is the writer object
-                    writer.writerow(column_name)
-                    for i in entity_dei_common_stock_units:
-                        print('hello')
-                        print(i)
-                        end = i.get('end')
-                        val = i.get('val')
-                        accn = i.get('accn')
-                        fy = i.get('fy')
-                        fp = i.get('fp')
-                        form = i.get('form')
-                        filed = i.get('filed')
-                        frame = i.get('frame')
-                        s.append((entity_key, entity_name, entity_dei_common_stock, entity_dei_common_stock_desc, end,
-                                  val, accn, fy, fp, form, filed, frame))
-                    writer.writerows(s)
-                    break
-            except KeyError:
-                print("Key not found in json file")
-    # print(l2)
+
+def convert_csv_into_json(csv_file, json_file):
+    jsonArray = []
+
+    with open(csv_file, encoding='utf-8') as csvf:
+        csvReader = csv.DictReader(csvf)
+        for row in csvReader:
+            jsonArray.append(row)
+    with open(json_file, 'w', encoding='utf-8') as jsonf:
+        jsonString = json.dumps(jsonArray, indent=4)
+        jsonf.write(jsonString)
+
+
+def upload_json_data_into_db(json_file):
+    # dynamodb = boto3.resource('dynamodb', region_name='us-east-1', aws_access_key_id="AKIAXQXR5MCQ7YVVUBOM",
+    #                           aws_secret_access_key="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")
+    # table = dynamodb.create_table(
+    #     TableName='Data_Analysis',
+    #     KeySchema=[
+    #         {
+    #             'AttributeName': 'cik',
+    #             'KeyType': 'HASH'  # Partition key
+    #         },
+    #         {
+    #             'AttributeName': 'entity_name',
+    #             'KeyType': 'RANGE'  # Sort key
+    #         }
+    #     ],
+    #     AttributeDefinitions=[
+    #         {
+    #             'AttributeName': 'cik',
+    #             'AttributeType': 'S'
+    #         },
+    #         {
+    #             'AttributeName': 'entity_name',
+    #             'AttributeType': 'S'
+    #         }
+    #
+    #     ],
+    #     ProvisionedThroughput={
+    #         'ReadCapacityUnits': 10,
+    #         'WriteCapacityUnits': 10
+    #     }
+    # )
+    #
+    # print("Table status:", table.table_status)
+
+    dynamodb = boto3.resource('dynamodb', region_name='us-east-1', aws_access_key_id="AKIAXQXR5MCQ7YVVUBOM",
+                              aws_secret_access_key="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")
+    table = dynamodb.Table("Data_Analysis")
+
+    with open(json_file) as json_file:
+        data = json.load(json_file)
+        for i in data:
+            cik = i['cik']
+            entity_name = i['entity_name']
+            stock_name = i["stock_name"]
+            stock_desc = i["stock_desc"]
+            end_date = i["end_date"]
+            value = i["value"]
+            accn_num = i["accn_num"]
+            f_year = i["f_year"]
+            fp_quarter = i["fp_quarter"]
+            form_num = i["form_num"]
+            filed_date = i["filed_date"]
+            frame_details = i["frame_details"]
+
+            print("Adding car:", cik, entity_name)
+            table.put_item(
+                Item={
+                    "cik": cik,
+                    "entity_name": entity_name,
+                    "stock_name": stock_name,
+                    "stock_desc": stock_desc,
+                    "end_date": end_date,
+                    "value": value,
+                    "accn_num": accn_num,
+                    "f_year": f_year,
+                    "fp_quarter": fp_quarter,
+                    "form_num": form_num,
+                    "filed_date": filed_date,
+                    "frame_details": frame_details
+                }
+            )
 
 
 def main():
@@ -121,15 +195,18 @@ def main():
     extractpath = 'extractzipfiles'
     url = 'https://www.sec.gov/Archives/edgar/daily-index/xbrl/companyfacts.zip'
     filename = url.split('/')[-1]
-    # download_zip_files(url, filename)
-    # extract_zip_file(myprojectpath, extractpath)
+    # download_zip_file(url, filename)
+    # # extract_zip_file(myprojectpath, extractpath)
     dict_list_of_files = load_files_into_dict(os.path.join(myprojectpath, extractpath))
     # ACCESS_KEY = input('Enter Access Key - S3 bucket - ', )
     # SECRET_KEY = input('Enter Secret Key - S3 bucket - ', )
-    # upload_files_to_awss3(os.path.join(myprojectpath, extractpath), dict_list_of_files, 'dataenggcoursevinoth', ACCESS_KEY,
-    #                       SECRET_KEY)
-    extract_data(os.path.join(myprojectpath, extractpath), dict_list_of_files,
-                 os.path.join(myprojectpath, 'conslidated.csv'))
+    upload_files_to_awss3(os.path.join(myprojectpath, extractpath), dict_list_of_files, 'dataenggcoursevinoth', ACCESS_KEY,
+                          SECRET_KEY)
+    # extract_data(os.path.join(myprojectpath, extractpath), dict_list_of_files,
+    #              os.path.join(myprojectpath, 'conslidated.csv'))
+    # convert_csv_into_json(os.path.join(myprojectpath, 'conslidated.csv'),
+    #                       os.path.join(myprojectpath, 'conslidated.json'))
+    # upload_json_data_into_db(os.path.join(myprojectpath, 'conslidated.json'))
 
 
 if __name__ == '__main__':
