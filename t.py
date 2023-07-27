@@ -1,5 +1,4 @@
 import csv
-
 import requests
 import zipfile
 import os
@@ -8,6 +7,7 @@ from botocore.exceptions import NoCredentialsError
 import json
 
 
+# Downloading zip files from web browser
 def download_zip_file(url, filename):
     r = requests.get(url, stream=True, headers={'User-Agent': 'Mozilla/5.0'})
     if r.status_code == 200:
@@ -17,6 +17,7 @@ def download_zip_file(url, filename):
             print('Zip File Downloading Completed')
 
 
+# Extracting zip files
 def extract_zip_file(currentpath, extractpath):
     if not os.path.exists(os.path.join(currentpath, extractpath)):
         os.makedirs(extractpath)
@@ -29,6 +30,7 @@ def extract_zip_file(currentpath, extractpath):
         print('Directory does not exist')
 
 
+# Saving each extracted json files as a value in dictionary
 def load_files_into_dict(jsonfilespath):
     i = 1
     files_to_upload = {}
@@ -39,6 +41,7 @@ def load_files_into_dict(jsonfilespath):
     return files_to_upload
 
 
+# Upload json files into aws s3 bucket
 def upload_files_to_awss3(jsonfilespath, list_of_files_dict, bucket, access_key, secret_key):
     s3 = boto3.client('s3', aws_access_key_id=access_key,
                       aws_secret_access_key=secret_key)
@@ -54,6 +57,7 @@ def upload_files_to_awss3(jsonfilespath, list_of_files_dict, bucket, access_key,
             print("Credentials not available")
 
 
+# Extract the data from each json files
 def extract_data(jsonFiles, dict_list_of_files, path):
     flag = 0
     count = 0
@@ -82,8 +86,6 @@ def extract_data(jsonFiles, dict_list_of_files, path):
                         if flag == 0:
                             writer.writeheader()
                         for i in entity_dei_common_stock_units:
-                            print('hello')
-                            print(i)
                             end = i.get('end')
                             val = i.get('val')
                             accn = i.get('accn')
@@ -105,9 +107,9 @@ def extract_data(jsonFiles, dict_list_of_files, path):
                     print("Key not found in json file")
 
 
+# Convert consolidated csv file into json file
 def convert_csv_into_json(csv_file, json_file):
     jsonArray = []
-
     with open(csv_file, encoding='utf-8') as csvf:
         csvReader = csv.DictReader(csvf)
         for row in csvReader:
@@ -117,43 +119,42 @@ def convert_csv_into_json(csv_file, json_file):
         jsonf.write(jsonString)
 
 
+# Upload extract json data into NOSQL DB
 def upload_json_data_into_db(json_file):
-    # dynamodb = boto3.resource('dynamodb', region_name='us-east-1', aws_access_key_id="AKIAXQXR5MCQ7YVVUBOM",
-    #                           aws_secret_access_key="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")
-    # table = dynamodb.create_table(
-    #     TableName='Data_Analysis',
-    #     KeySchema=[
-    #         {
-    #             'AttributeName': 'cik',
-    #             'KeyType': 'HASH'  # Partition key
-    #         },
-    #         {
-    #             'AttributeName': 'entity_name',
-    #             'KeyType': 'RANGE'  # Sort key
-    #         }
-    #     ],
-    #     AttributeDefinitions=[
-    #         {
-    #             'AttributeName': 'cik',
-    #             'AttributeType': 'S'
-    #         },
-    #         {
-    #             'AttributeName': 'entity_name',
-    #             'AttributeType': 'S'
-    #         }
-    #
-    #     ],
-    #     ProvisionedThroughput={
-    #         'ReadCapacityUnits': 10,
-    #         'WriteCapacityUnits': 10
-    #     }
-    # )
-    #
-    # print("Table status:", table.table_status)
-
     dynamodb = boto3.resource('dynamodb', region_name='us-east-1', aws_access_key_id="AKIAXQXR5MCQ7YVVUBOM",
                               aws_secret_access_key="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")
-    table = dynamodb.Table("Data_Analysis")
+    table = dynamodb.create_table(
+        TableName='StockData_Analysis',
+        KeySchema=[
+            {
+                'AttributeName': 'cik',
+                'KeyType': 'HASH'  # Partition key
+            },
+            {
+                'AttributeName': 'entity_name',
+                'KeyType': 'RANGE'  # Sort key
+            }
+        ],
+        AttributeDefinitions=[
+            {
+                'AttributeName': 'cik',
+                'AttributeType': 'S'
+            },
+            {
+                'AttributeName': 'entity_name',
+                'AttributeType': 'S'
+            }
+
+        ],
+        ProvisionedThroughput={
+            'ReadCapacityUnits': 10,
+            'WriteCapacityUnits': 10
+        }
+    )
+    print("Table status:", table.table_status)
+    dynamodb = boto3.resource('dynamodb', region_name='us-east-1', aws_access_key_id="AKIAXQXR5MCQ7YVVUBOM",
+                              aws_secret_access_key="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")
+    table = dynamodb.Table("StockData_Analysis")
 
     with open(json_file) as json_file:
         data = json.load(json_file)
@@ -195,18 +196,18 @@ def main():
     extractpath = 'extractzipfiles'
     url = 'https://www.sec.gov/Archives/edgar/daily-index/xbrl/companyfacts.zip'
     filename = url.split('/')[-1]
-    # download_zip_file(url, filename)
-    # # extract_zip_file(myprojectpath, extractpath)
+    download_zip_file(url, filename)
+    extract_zip_file(myprojectpath, extractpath)
     dict_list_of_files = load_files_into_dict(os.path.join(myprojectpath, extractpath))
-    # ACCESS_KEY = input('Enter Access Key - S3 bucket - ', )
-    # SECRET_KEY = input('Enter Secret Key - S3 bucket - ', )
+    ACCESS_KEY = input('Enter Access Key - S3 bucket - ', )
+    SECRET_KEY = input('Enter Secret Key - S3 bucket - ', )
     upload_files_to_awss3(os.path.join(myprojectpath, extractpath), dict_list_of_files, 'dataenggcoursevinoth', ACCESS_KEY,
                           SECRET_KEY)
-    # extract_data(os.path.join(myprojectpath, extractpath), dict_list_of_files,
-    #              os.path.join(myprojectpath, 'conslidated.csv'))
-    # convert_csv_into_json(os.path.join(myprojectpath, 'conslidated.csv'),
-    #                       os.path.join(myprojectpath, 'conslidated.json'))
-    # upload_json_data_into_db(os.path.join(myprojectpath, 'conslidated.json'))
+    extract_data(os.path.join(myprojectpath, extractpath), dict_list_of_files,
+                 os.path.join(myprojectpath, 'conslidated.csv'))
+    convert_csv_into_json(os.path.join(myprojectpath, 'conslidated.csv'),
+                          os.path.join(myprojectpath, 'conslidated.json'))
+    upload_json_data_into_db(os.path.join(myprojectpath, 'conslidated.json'))
 
 
 if __name__ == '__main__':
