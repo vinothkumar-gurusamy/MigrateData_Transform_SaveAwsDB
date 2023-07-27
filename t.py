@@ -6,7 +6,6 @@ import boto3
 from botocore.exceptions import NoCredentialsError
 import json
 
-
 # Downloading zip files from web browser
 def download_zip_file(url, filename):
     r = requests.get(url, stream=True, headers={'User-Agent': 'Mozilla/5.0'})
