@@ -13,7 +13,7 @@ def lambda_handler(event, context):
     connection = psycopg2.connect(
         host='vinoth-postgres-db.czurf89rwzej.us-east-1.rds.amazonaws.com',
         port=5432,
-        user='',
+        user='vinoth',
         password='admin123',
         database='vinoth_db'
     )
