@@ -1,1 +1,4 @@
-Data Transformation and Storing Transformed Data in AWS RDS NoSQL Database
+Data Migration and Transformation Tool for Amazon RDS Data Warehouses
+
+Please refer below mentioned blog to know more about this project
+https://medium.com/@guruvinoth96/data-transformation-and-storing-transformed-data-in-aws-rds-nosql-database-72fc2ccd06f8
