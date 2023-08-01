@@ -1,6 +1,7 @@
 **Data Migration and Transformation Tool for Amazon RDS Data Warehouses**
 
-**Py file for this project **
+
+**Please refer below mentioned .py file for this project**
   - DataMigrateTransformSaveAwsDb.py
 
 **Please refer below mentioned blog to know more about this project**
